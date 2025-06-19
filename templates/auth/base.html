@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="cabecera-principal">
+        <div class="contenedor-cabecera">
+            <div class="contenedor-logo">
+                <img src="/static/img/logo_dsi.png" alt="Logo Instituto" class="logo-instituto">
+                <div class="info-instituto">
+                    <h1>Instituto Superior Tecnologico Publico Suiza</h1>
+                    <p>Excelencia académica desde 1985</p>
+                </div>
+            </div>
+            <nav class="navegacion-principal">
+                <ul>
+                    <li><a href="#"><i class="fas fa-home"></i> Inicio</a></li>
+                    <li><a href="#"><i class="fas fa-file-alt"></i> Reporte de notas</a></li>
+                    <li><a href="#"><i class="fas fa-calendar-check"></i> Asistencia</a></li>
+                    <li><a href="#"><i class="fas fa-user-graduate"></i> Reporte alumno</a></li>
+                    <li><a href="#" class="activo"><i class="fas fa-clipboard-list"></i> Trámites</a></li>
+                    <li><a href="#"><i class="fas fa-comments"></i> Chat consultas</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+
+    {%block secctions%}    {%endblock%}
+
+
+    <footer class="pie-pagina">
+        <div class="contenido-pie">
+            <div class="seccion-pie">
+                <h4>Instituto Superior</h4>
+                <p>Institución comprometida con la excelencia académica y la formación profesional.</p>
+            </div>
+            <div class="seccion-pie">
+                <h4>Enlaces Rápidos</h4>
+                <ul>
+                    <li><a href="#">Calendario académico</a></li>
+                    <li><a href="#">Reglamentos</a></li>
+                    <li><a href="#">Preguntas frecuentes</a></li>
+                </ul>
+            </div>
+            <div class="seccion-pie">
+                <h4>Redes Sociales</h4>
+                <div class="iconos-sociales">
+                    <a href="#"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-instagram"></i></a>
+                    <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="base-pie">
+            <p>&copy; 2023 Instituto Superior de Estudios Profesionales. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+</body>
+</html>
