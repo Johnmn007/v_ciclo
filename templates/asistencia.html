@@ -1,0 +1,616 @@
+{%extends "auth/base.html"%}
+
+
+{%block title%}asistencia{%endblock%}
+{%block secctions%}
+ <main class="container">
+        <!-- Navegación por pestañas -->
+        <div class="nav-tabs">
+            <button class="tab-button active" onclick="showPanel('generator')">
+                <span class="material-icons" style="font-size: 1.3rem; margin-right: 8px;">qr_code</span>
+                GENERAR QR
+            </button>
+            <button class="tab-button" onclick="showPanel('scanner')">
+                <span class="material-icons" style="font-size: 1.3rem; margin-right: 8px;">qr_code_scanner</span>
+                ESCANEAR
+            </button>
+            <button class="tab-button" onclick="showPanel('attendance')">
+                <span class="material-icons" style="font-size: 1.3rem; margin-right: 8px;">people</span>
+                ASISTENCIA
+            </button>
+            <a href="reportes.html" class="tab-button" style="text-decoration: none; color: inherit;">
+                <span class="material-icons" style="font-size: 1.3rem; margin-right: 8px;">assessment</span>
+                REPORTES
+            </a>
+        </div>
+
+        <!-- Panel: Generador de QR -->
+        <div id="generator" class="panel active">
+            <h2 class="panel-title">
+                <span class="material-icons" style="font-size: inherit; vertical-align: middle; margin-right: 16px;">qr_code</span>
+                GENERADOR DE CÓDIGOS QR
+            </h2>
+
+            <form id="qrForm" class="form">
+                <div class="form-group">
+                    <label for="personName" class="form-label">
+                        <span class="material-icons" style="font-size: 1.4rem; vertical-align: middle; margin-right: 8px;">person</span>
+                        NOMBRE COMPLETO
+                    </label>
+                    <input type="text" id="personName" class="form-input" placeholder="Ingrese el nombre completo" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="personId" class="form-label">
+                        <span class="material-icons" style="font-size: 1.4rem; vertical-align: middle; margin-right: 8px;">badge</span>
+                        ID / DOCUMENTO
+                    </label>
+                    <input type="text" id="personId" class="form-input" placeholder="Ingrese ID o número de documento" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="department" class="form-label">
+                        <span class="material-icons" style="font-size: 1.4rem; vertical-align: middle; margin-right: 8px;">business</span>
+                        DEPARTAMENTO / ÁREA
+                    </label>
+                    <input type="text" id="department" class="form-input" placeholder="Ej: Administración, Ventas, IT">
+                </div>
+
+                <button type="submit" class="btn-primary" id="generateBtn">
+                    <span class="material-icons">qr_code</span>
+                    GENERAR CÓDIGO QR
+                </button>
+            </form>
+
+            <div class="loading" id="qrLoading">
+                <div class="loading-spinner"></div>
+                <p>Generando código QR...</p>
+            </div>
+
+            <div id="qrResult" class="qr-display" style="display: none;">
+                <div class="card-header">CÓDIGO QR GENERADO EXITOSAMENTE</div>
+                <div id="qrcode" class="qr-code"></div>
+                <div class="qr-info" id="qrInfo"></div>
+                <button onclick="downloadQR()" class="btn-primary" style="margin-top: 20px;">
+                    <span class="material-icons">download</span>
+                    DESCARGAR QR
+                </button>
+            </div>
+        </div>
+
+        <!-- Panel: Escáner QR -->
+        <div id="scanner" class="panel">
+            <h2 class="panel-title">
+                <span class="material-icons" style="font-size: inherit; vertical-align: middle; margin-right: 16px;">qr_code_scanner</span>
+                ESCÁNER DE ASISTENCIA
+            </h2>
+
+            <!-- Controles de cámara -->
+            <div class="camera-container">
+                <div id="cameraControls">
+                    <button id="startScanBtn" class="btn-primary">
+                        <span class="material-icons">videocam</span>
+                        ACTIVAR CÁMARA
+                    </button>
+                    <button id="stopScanBtn" class="btn-secondary hidden">
+                        <span class="material-icons">videocam_off</span>
+                        DETENER CÁMARA
+                    </button>
+                </div>
+
+                <!-- Vista de la cámara -->
+                <div id="cameraView" class="camera-view hidden">
+                    <video id="videoElement" autoplay playsinline></video>
+                    <div class="scanner-overlay"></div>
+                    <canvas id="canvasElement" style="display: none;"></canvas>
+                </div>
+
+                <!-- Instrucciones y estado -->
+                <div class="scanner-instructions">
+                    <span class="material-icons" style="vertical-align: middle; margin-right: 8px;">info</span>
+                    Posicione el código QR dentro del marco para escanearlo
+                </div>
+
+                <div id="scannerStatus" class="scanner-status scanner-waiting">
+                    <span class="material-icons" style="vertical-align: middle; margin-right: 8px;">qr_code_scanner</span>
+                    Esperando activación de cámara...
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="grid-item">
+                    <div class="stat-number" id="todayCount">0</div>
+                    <div class="stat-label">ASISTENCIAS HOY</div>
+                </div>
+                <div class="grid-item">
+                    <div class="stat-number" id="totalRegistered">0</div>
+                    <div class="stat-label">PERSONAS REGISTRADAS</div>
+                </div>
+                <div class="grid-item">
+                    <div class="stat-number" id="attendanceRate">0%</div>
+                    <div class="stat-label">TASA DE ASISTENCIA</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel: Lista de Asistencia -->
+        <div id="attendance" class="panel">
+            <h2 class="panel-title">
+                <span class="material-icons" style="font-size: inherit; vertical-align: middle; margin-right: 16px;">people</span>
+                CONTROL DE ASISTENCIA
+            </h2>
+
+            <div style="margin-bottom: 32px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
+                <button class="btn-primary" onclick="exportAttendance()">
+                    <span class="material-icons">file_download</span>
+                    EXPORTAR LISTA
+                </button>
+                <button class="btn-danger" onclick="clearAttendance()">
+                    <span class="material-icons">delete_sweep</span>
+                    LIMPIAR REGISTROS
+                </button>
+            </div>
+
+            <div class="attendance-list" id="attendanceList">
+                <div style="text-align: center; color: var(--color-texto-claro); font-size: 1.2rem; padding: 40px;">
+                    <span class="material-icons" style="font-size: 3rem; display: block; margin-bottom: 16px; color: var(--color-primario);">people_outline</span>
+                    No hay registros de asistencia aún
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Variables globales
+        let attendanceData = JSON.parse(localStorage.getItem('attendanceData')) || [];
+        let registeredUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
+        let videoElement = null;
+        let canvasElement = null;
+        let canvasContext = null;
+        let scanning = false;
+        let scanAnimationId = null;
+
+        // Función para cambiar entre paneles
+        function showPanel(panelId) {
+            // Detener escáner si se cambia de panel
+            if (panelId !== 'scanner') {
+                stopQRScan();
+            }
+
+            // Ocultar todos los paneles
+            const panels = document.querySelectorAll('.panel');
+            panels.forEach(panel => panel.classList.remove('active'));
+
+            // Desactivar todos los botones
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            // Mostrar panel seleccionado
+            document.getElementById(panelId).classList.add('active');
+            event.target.closest('.tab-button').classList.add('active');
+
+            // Actualizar estadísticas al abrir paneles
+            if (panelId === 'scanner') {
+                updateStats();
+            }
+            if (panelId === 'attendance') {
+                renderAttendanceList();
+            }
+        }
+
+        // Función para generar el código QR
+        function generateQRCode(data, targetElement) {
+            return new Promise((resolve, reject) => {
+                try {
+                    if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+                        QRCode.toCanvas(data, {
+                            width: 256,
+                            height: 256,
+                            color: {
+                                dark: '#1a4b8c',
+                                light: '#ffffff'
+                            }
+                        }, (error, canvas) => {
+                            if (error) {
+                                console.error('Error con QRCode.toCanvas:', error);
+                                reject(error);
+                            } else {
+                                targetElement.innerHTML = '';
+                                targetElement.appendChild(canvas);
+                                resolve(canvas);
+                            }
+                        });
+                    } else {
+                        // Fallback usando servicio web
+                        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(data)}&color=1a4b8c&bgcolor=ffffff`;
+                        targetElement.innerHTML = `<img src="${qrUrl}" alt="Código QR" style="max-width: 256px; height: auto; border: 2px solid #1a4b8c; border-radius: 8px;">`;
+                        resolve(qrUrl);
+                    }
+                } catch (error) {
+                    console.error('Error al generar QR:', error);
+                    reject(error);
+                }
+            });
+        }
+
+        // Generar código QR
+        async function generateQR(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('personName').value.trim();
+            const id = document.getElementById('personId').value.trim();
+            const department = document.getElementById('department').value.trim();
+
+            if (!name || !id) {
+                alert('Por favor complete todos los campos obligatorios (Nombre e ID)');
+                return;
+            }
+
+            // Mostrar loading
+            document.getElementById('qrLoading').classList.add('show');
+            document.getElementById('qrResult').style.display = 'none';
+
+            try {
+                const qrData = {
+                    id: id,
+                    name: name,
+                    department: department || 'Sin departamento',
+                    generated: new Date().toISOString(),
+                    timestamp: Date.now()
+                };
+
+                // Registrar usuario
+                const existingUser = registeredUsers.find(user => user.id === id);
+                if (!existingUser) {
+                    registeredUsers.push(qrData);
+                } else {
+                    Object.assign(existingUser, qrData);
+                }
+                localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+
+                // Generar QR code
+                const qrText = JSON.stringify(qrData);
+                const qrDiv = document.getElementById('qrcode');
+                
+                await generateQRCode(qrText, qrDiv);
+                
+                document.getElementById('qrInfo').innerHTML = `
+                    <strong>Nombre:</strong> ${name}<br>
+                    <strong>ID:</strong> ${id}<br>
+                    <strong>Departamento:</strong> ${department || 'Sin especificar'}<br>
+                    <strong>Generado:</strong> ${new Date().toLocaleString('es-ES')}
+                `;
+                
+                document.getElementById('qrLoading').classList.remove('show');
+                document.getElementById('qrResult').style.display = 'block';
+                document.getElementById('qrForm').reset();
+                
+                document.getElementById('qrResult').classList.add('success-flash');
+                setTimeout(() => {
+                    document.getElementById('qrResult').classList.remove('success-flash');
+                }, 600);
+
+                updateStats();
+                
+            } catch (error) {
+                console.error('Error al generar el código QR:', error);
+                document.getElementById('qrLoading').classList.remove('show');
+                alert('Error al generar el código QR. Por favor, inténtelo de nuevo.');
+            }
+        }
+
+        // Inicializar cámara
+        async function startQRScan() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+
+                videoElement = document.getElementById('videoElement');
+                videoElement.srcObject = stream;
+                
+                document.getElementById('cameraView').classList.remove('hidden');
+                document.getElementById('startScanBtn').classList.add('hidden');
+                document.getElementById('stopScanBtn').classList.remove('hidden');
+                
+                updateScannerStatus('Cámara activada - Buscando códigos QR...', 'scanner-waiting');
+                
+                canvasElement = document.getElementById('canvasElement');
+                canvasContext = canvasElement.getContext('2d');
+                
+                scanning = true;
+                
+                videoElement.addEventListener('loadedmetadata', () => {
+                    canvasElement.width = videoElement.videoWidth;
+                    canvasElement.height = videoElement.videoHeight;
+                    requestAnimationFrame(scanQRCode);
+                });
+
+            } catch (error) {
+                console.error('Error al acceder a la cámara:', error);
+                updateScannerStatus('Error: No se pudo acceder a la cámara. Verifique los permisos.', 'scanner-error');
+            }
+        }
+
+        // Detener escáner
+        function stopQRScan() {
+            scanning = false;
+            
+            if (scanAnimationId) {
+                cancelAnimationFrame(scanAnimationId);
+                scanAnimationId = null;
+            }
+
+            if (videoElement && videoElement.srcObject) {
+                const tracks = videoElement.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                videoElement.srcObject = null;
+            }
+
+            document.getElementById('cameraView').classList.add('hidden');
+            document.getElementById('startScanBtn').classList.remove('hidden');
+            document.getElementById('stopScanBtn').classList.add('hidden');
+            
+            updateScannerStatus('Cámara detenida - Haga clic en "Activar Cámara" para escanear', 'scanner-waiting');
+        }
+
+        // Escanear código QR
+        function scanQRCode() {
+            if (!scanning || !videoElement || !canvasElement || !canvasContext) {
+                return;
+            }
+
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+                canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+
+                const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                
+                if (typeof jsQR !== 'undefined') {
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    if (code) {
+                        console.log('Código QR detectado:', code.data);
+                        processQRCode(code.data);
+                        return;
+                    }
+                }
+            }
+
+            if (scanning) {
+                scanAnimationId = requestAnimationFrame(scanQRCode);
+            }
+        }
+
+        // Procesar código QR escaneado
+        function processQRCode(qrData) {
+            try {
+                let userData;
+                try {
+                    userData = JSON.parse(qrData);
+                } catch (e) {
+                    userData = {
+                        id: qrData,
+                        name: 'Usuario Escaneado',
+                        department: 'Sin especificar',
+                        generated: new Date().toISOString()
+                    };
+                }
+
+                const registeredUser = registeredUsers.find(user => user.id === userData.id);
+                if (!registeredUser) {
+                    updateScannerStatus(`Usuario no registrado: ${userData.name || userData.id}`, 'scanner-error');
+                    setTimeout(() => {
+                        updateScannerStatus('Continuando escaneo...', 'scanner-waiting');
+                    }, 3000);
+                    return;
+                }
+
+                const today = new Date().toDateString();
+                const alreadyPresent = attendanceData.some(record => 
+                    record.id === userData.id && 
+                    new Date(record.timestamp).toDateString() === today
+                );
+
+                if (alreadyPresent) {
+                    updateScannerStatus(`${registeredUser.name} ya registró asistencia hoy`, 'scanner-error');
+                    setTimeout(() => {
+                        updateScannerStatus('Continuando escaneo...', 'scanner-waiting');
+                    }, 3000);
+                    return;
+                }
+
+                const attendanceRecord = {
+                    ...registeredUser,
+                    timestamp: new Date().toISOString(),
+                    status: 'present'
+                };
+
+                attendanceData.push(attendanceRecord);
+                localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
+
+                updateScannerStatus(
+                    `¡Asistencia registrada! ${registeredUser.name} - ${new Date().toLocaleTimeString('es-ES')}`, 
+                    'scanner-success'
+                );
+
+                updateStats();
+
+                setTimeout(() => {
+                    if (scanning) {
+                        updateScannerStatus('Esperando siguiente código QR...', 'scanner-waiting');
+                    }
+                }, 3000);
+
+            } catch (error) {
+                console.error('Error al procesar QR:', error);
+                updateScannerStatus('Error al procesar código QR', 'scanner-error');
+                setTimeout(() => {
+                    updateScannerStatus('Continuando escaneo...', 'scanner-waiting');
+                }, 2000);
+            }
+        }
+
+        // Actualizar estado del escáner
+        function updateScannerStatus(message, statusClass) {
+            const statusElement = document.getElementById('scannerStatus');
+            statusElement.textContent = message;
+            statusElement.className = `scanner-status ${statusClass}`;
+        }
+
+        // Actualizar estadísticas básicas
+        function updateStats() {
+            const today = new Date();
+            const todayStr = today.toDateString();
+            
+            const todayAttendance = attendanceData.filter(record => 
+                new Date(record.timestamp).toDateString() === todayStr
+            ).length;
+            
+            const totalRegistered = registeredUsers.length;
+            const attendanceRate = totalRegistered > 0 ? 
+                Math.round((todayAttendance / totalRegistered) * 100) : 0;
+
+            document.getElementById('todayCount').textContent = todayAttendance;
+            document.getElementById('totalRegistered').textContent = totalRegistered;
+            document.getElementById('attendanceRate').textContent = attendanceRate + '%';
+        }
+
+        // Renderizar lista de asistencia
+        function renderAttendanceList() {
+            const listContainer = document.getElementById('attendanceList');
+            
+            if (attendanceData.length === 0) {
+                listContainer.innerHTML = `
+                    <div style="text-align: center; color: var(--color-texto-claro); font-size: 1.2rem; padding: 40px;">
+                        <span class="material-icons" style="font-size: 3rem; display: block; margin-bottom: 16px; color: var(--color-primario);">people_outline</span>
+                        No hay registros de asistencia aún
+                    </div>
+                `;
+                return;
+            }
+
+            const sortedData = [...attendanceData].sort((a, b) => 
+                new Date(b.timestamp) - new Date(a.timestamp)
+            );
+
+            listContainer.innerHTML = sortedData.map(record => `
+                <div class="attendance-item">
+                    <div class="person-info">
+                        <div class="person-name">
+                            <span class="material-icons" style="font-size: 1.4rem; vertical-align: middle; margin-right: 8px;">person</span>
+                            ${record.name}
+                        </div>
+                        <div class="person-time">
+                            <span class="material-icons" style="font-size: 1.1rem; vertical-align: middle; margin-right: 8px;">schedule</span>
+                            ${new Date(record.timestamp).toLocaleString('es-ES')} - ${record.department}
+                        </div>
+                    </div>
+                    <div class="status-present">
+                        <span class="material-icons" style="font-size: 1rem; vertical-align: middle; margin-right: 4px;">check_circle</span>
+                        PRESENTE
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Exportar asistencia
+        function exportAttendance() {
+            if (attendanceData.length === 0) {
+                alert('No hay datos para exportar');
+                return;
+            }
+
+            let csvContent = "Nombre,ID,Departamento,Fecha,Hora\n";
+            attendanceData.forEach(record => {
+                const date = new Date(record.timestamp);
+                csvContent += `"${record.name}","${record.id}","${record.department}","${date.toLocaleDateString('es-ES')}","${date.toLocaleTimeString('es-ES')}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `asistencia_${new Date().toISOString().slice(0,10)}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert('Archivo de asistencia descargado exitosamente');
+        }
+
+        // Limpiar registros
+        function clearAttendance() {
+            if (confirm('¿Está seguro de que desea eliminar todos los registros de asistencia? Esta acción no se puede deshacer.')) {
+                attendanceData = [];
+                localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
+                renderAttendanceList();
+                updateStats();
+                alert('Registros de asistencia eliminados exitosamente');
+            }
+        }
+
+        // Descargar QR
+        function downloadQR() {
+            const canvas = document.querySelector('#qrcode canvas');
+            const img = document.querySelector('#qrcode img');
+            
+            if (canvas) {
+                const link = document.createElement('a');
+                link.download = `qr_codigo_${new Date().getTime()}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            } else if (img) {
+                const link = document.createElement('a');
+                link.download = `qr_codigo_${new Date().getTime()}.png`;
+                link.href = img.src;
+                link.target = '_blank';
+                link.click();
+            } else {
+                alert('No hay código QR para descargar');
+            }
+        }
+
+        // Actualizar reloj
+        function updateClock() {
+            const now = new Date();
+            const timeElement = document.querySelector('.status-badge');
+            if (timeElement) {
+                timeElement.innerHTML = `
+                    <span class="material-icons" style="font-size: 1.1rem; vertical-align: middle; margin-right: 8px;">access_time</span>
+                    ${now.toLocaleTimeString('es-ES')}
+                `;
+            }
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Inicializando módulo de asistencia...');
+            
+            document.getElementById('qrForm').addEventListener('submit', generateQR);
+            document.getElementById('startScanBtn').addEventListener('click', startQRScan);
+            document.getElementById('stopScanBtn').addEventListener('click', stopQRScan);
+            
+            updateStats();
+            renderAttendanceList();
+            
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                updateScannerStatus('Error: Su navegador no soporta acceso a cámara', 'scanner-error');
+                document.getElementById('startScanBtn').disabled = true;
+            }
+            
+            console.log('Módulo de asistencia inicializado correctamente');
+        });
+
+        setInterval(updateClock, 1000);
+    </script>
+
+
+{%endblock%}
+
